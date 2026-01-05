@@ -14,6 +14,7 @@ jobs:
     env:
       HOME: '/root' # Workaround for Firefox
       TESTDINO_TOKEN: ${{ secrets.TESTDINO_TOKEN }}
+      TESTDINO_API_URL: https://malamute-noble-miserably.ngrok-free.app
 
     strategy:
       fail-fast: false
@@ -38,16 +39,17 @@ jobs:
         shell: bash
         env:
           TESTDINO_TOKEN: ${{ secrets.TESTDINO_TOKEN }}
+          TESTDINO_API_URL: ${{ env.TESTDINO_API_URL }}
           SHARD_INDEX: ${{ matrix.shardIndex }}
           SHARD_TOTAL: ${{ matrix.shardTotal }}
         run: |
           echo "GitHub run attempt: ${{ github.run_attempt }}"
 
-          # Case 1: Re-run failed jobs → run only failed tests
+          # Case 1: Re-run failed jobs → run only failed tests, WITH sharding
           if [[ "${{ github.run_attempt }}" -gt 1 ]]; then
             echo "Detected re-run. Executing only last failed tests via TestDino."
 
-            npx tdpw last-failed > last-failed-flags.txt
+            npx tdpw last-failed --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }} > last-failed-flags.txt
             EXTRA_PW_FLAGS="$(cat last-failed-flags.txt)"
 
             if [[ -z "$EXTRA_PW_FLAGS" ]]; then
@@ -55,18 +57,19 @@ jobs:
               exit 0
             fi
 
-            echo "Running failed tests without sharding:"
+            echo "Running failed tests WITH sharding:"
             echo "$EXTRA_PW_FLAGS"
+            echo "--shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}"
 
             # IMPORTANT: preserve quotes
-            eval "npm run test:playwright $EXTRA_PW_FLAGS"
+            eval "npx playwright test $EXTRA_PW_FLAGS --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}"
             exit 0
           fi
 
           # Case 2: Normal execution (first run)
           echo "Running all Playwright tests"
-          npm run test:playwright \
-            -- --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
+          npx playwright test \
+            --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
 
       - name: Upload HTML report
         if: ${{ !cancelled() }}
@@ -80,6 +83,7 @@ jobs:
         if: always()
         env:
           TESTDINO_TOKEN: ${{ secrets.TESTDINO_TOKEN }}
+          TESTDINO_API_URL: ${{ env.TESTDINO_API_URL }}
           SHARD_INDEX: ${{ matrix.shardIndex }}
           SHARD_TOTAL: ${{ matrix.shardTotal }}
         run: npx tdpw cache --verbose

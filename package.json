@@ -1,9 +1,7 @@
 {
   "name": "playwright-tests",
   "version": "1.0.0",
-  "scripts": {
-    "test:playwright": "playwright test"
-  },
+  "scripts": {},
   "keywords": [],
   "author": "",
   "license": "ISC",
