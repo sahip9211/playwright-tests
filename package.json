@@ -1,14 +1,17 @@
 {
   "name": "playwright-tests",
   "version": "1.0.0",
-  "scripts": {},
+  "scripts": {
+    "test:playwright": "playwright test"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
     "dotenv": "^16.6.1",
-    "playwright": "^1.55.1"
+    "playwright": "^1.55.1",
+    "tdpw": "file:tdpw-1.0.26.tgz"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.1",

@@ -2,28 +2,28 @@ name: Playwright Tests
 
 on:
   push:
+  pull_request:
 
 jobs:
-  playwright-run-e2es:
+  run-playwright-tests:
+    name: Run Playwright Tests
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.55.0
+
+    env:
+      HOME: '/root' # Workaround for Firefox
+      TESTDINO_TOKEN: ${{ secrets.TESTDINO_TOKEN }}
+
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3]
-        shardTotal: [3]
+        shardIndex: [1, 2, 3, 4, 5]
+        shardTotal: [5]
 
-    runs-on: ubuntu-latest
-    container: mcr.microsoft.com/playwright:latest
-    env:
-      # TESTDINO_API_URL: https://staging-api.testdino.com
-      TESTDINO_TOKEN: trx_production_9eda7e3522993ce52431c289a966101c6757aec45372a37d0ff354c9bfa51ba2
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.ref }}
-
-      - run: |
-          echo "$GITHUB_WORKSPACE"
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
@@ -32,63 +32,69 @@ jobs:
       - name: Install dependencies
         run: |
           npm install
-          npx playwright install chromium
+          npx playwright install --with-deps chromium
 
-      - name: Playwright Tests
+      - name: Run Playwright Tests
+        env:
+          TESTDINO_TOKEN: ${{ secrets.TESTDINO_TOKEN }}
+          SHARD_INDEX: ${{ matrix.shardIndex }}
+          SHARD_TOTAL: ${{ matrix.shardTotal }}
         run: |
-          npx playwright test --shard=${{ matrix.shard }}/${{ matrix.shardTotal }}
-      
-      - name: Upload blob report to GitHub Actions Artifacts
+          echo "GitHub run attempt: ${{ github.run_attempt }}"
+
+          # Case 1: Re-run failed jobs → run only failed tests
+          if [[ "${{ github.run_attempt }}" -gt 1 ]]; then
+            echo "Detected re-run. Executing only last failed tests via TestDino."
+
+            npx tdpw last-failed > last-failed-flags.txt
+            EXTRA_PW_FLAGS="$(cat last-failed-flags.txt)"
+
+            if [[ -z "$EXTRA_PW_FLAGS" ]]; then
+              echo "No failed tests found. Exiting."
+              exit 0
+            fi
+
+            echo "Running failed tests without sharding:"
+            echo "$EXTRA_PW_FLAGS"
+
+            # IMPORTANT: preserve quotes
+            eval "npm run test:playwright $EXTRA_PW_FLAGS"
+            exit 0
+          fi
+
+          # Case 2: Normal execution (first run)
+          echo "Running all Playwright tests"
+          npm run test:playwright \
+            -- --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }} \
+            --grep-invert "@not-pr"
+
+      - name: Upload HTML report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
-          name: blob-report-${{ matrix.shard }}
-          path: blob-report
-          retention-days: 14
-
-  playwright-merge-reports:
-    needs: [playwright-run-e2es]
-    if: ${{ !cancelled() && needs.playwright-run-e2es.result != 'skipped' }}
-    runs-on: ubuntu-latest
-    env:
-      TESTDINO_API_URL: https://staging-api.testdino.com
-      TESTDINO_TOKEN: trx_staging_b86953031092a582141f5a41617d35f723ca416e675fd53ace58222d73eefc0e
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.ref }}
-
-      - run: |
-          echo "$GITHUB_WORKSPACE"
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22.x"
-
-      - name: Install dependencies
-        run: |
-          npm install
-          npx playwright install chromium
-
-      - name: Download blob reports from GitHub Actions Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: ./all-blob-reports
-          pattern: blob-report-*
-          merge-multiple: true
-
-      - name: Merge Reports
-        run: |
-          npx playwright merge-reports --config=playwright.config.js ./all-blob-reports
-
-      - name: Upload HTML report
-        uses: actions/upload-artifact@v4
-        with:
-          name: Playwright Test Report
+          name: playwright-report-${{ matrix.shardIndex }}
           path: ./playwright-report
           retention-days: 14
 
       - name: Cache tdpw last failed metadata
         if: always()
-        run: npx tdpw cache
+        env:
+          TESTDINO_TOKEN: ${{ secrets.TESTDINO_TOKEN }}
+          SHARD_INDEX: ${{ matrix.shardIndex }}
+          SHARD_TOTAL: ${{ matrix.shardTotal }}
+        run: npx tdpw cache --verbose
+
+  playwright-tests-succeeded:
+    name: Check Playwright Tests Status
+    if: ${{ always() }}
+    needs:
+      - run-playwright-tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ensure the tests succeeded
+        run: |
+          if [[ "${{ needs.run-playwright-tests.result }}" == "success" || "${{ needs.run-playwright-tests.result }}" == "skipped" ]]; then
+            exit 0
+          else
+            exit 1
+          fi
