@@ -57,7 +57,7 @@ jobs:
               exit 0
             fi
 
-            echo "Running failed tests WITH sharding:"
+            echo "Running failed tests without sharding:"
             echo "$EXTRA_PW_FLAGS"
 
             # IMPORTANT: preserve quotes
