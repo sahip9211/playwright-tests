@@ -35,6 +35,7 @@ jobs:
           npx playwright install --with-deps chromium
 
       - name: Run Playwright Tests
+        shell: bash
         env:
           TESTDINO_TOKEN: ${{ secrets.TESTDINO_TOKEN }}
           SHARD_INDEX: ${{ matrix.shardIndex }}
@@ -65,8 +66,7 @@ jobs:
           # Case 2: Normal execution (first run)
           echo "Running all Playwright tests"
           npm run test:playwright \
-            -- --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }} \
-            --grep-invert "@not-pr"
+            -- --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
 
       - name: Upload HTML report
         if: ${{ !cancelled() }}
@@ -92,6 +92,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ensure the tests succeeded
+        shell: bash
         run: |
           if [[ "${{ needs.run-playwright-tests.result }}" == "success" || "${{ needs.run-playwright-tests.result }}" == "skipped" ]]; then
             exit 0
