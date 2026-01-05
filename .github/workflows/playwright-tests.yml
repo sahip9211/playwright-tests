@@ -1,0 +1,94 @@
+name: Playwright Tests
+
+on:
+  push:
+
+jobs:
+  playwright-run-e2es:
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+        shardTotal: [3]
+
+    runs-on: ubuntu-latest
+    container: mcr.microsoft.com/playwright:latest
+    env:
+      # TESTDINO_API_URL: https://staging-api.testdino.com
+      TESTDINO_TOKEN: trx_production_9eda7e3522993ce52431c289a966101c6757aec45372a37d0ff354c9bfa51ba2
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - run: |
+          echo "$GITHUB_WORKSPACE"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.x"
+
+      - name: Install dependencies
+        run: |
+          npm install
+          npx playwright install chromium
+
+      - name: Playwright Tests
+        run: |
+          npx playwright test --shard=${{ matrix.shard }}/${{ matrix.shardTotal }}
+      
+      - name: Upload blob report to GitHub Actions Artifacts
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: blob-report-${{ matrix.shard }}
+          path: blob-report
+          retention-days: 14
+
+  playwright-merge-reports:
+    needs: [playwright-run-e2es]
+    if: ${{ !cancelled() && needs.playwright-run-e2es.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    env:
+      TESTDINO_API_URL: https://staging-api.testdino.com
+      TESTDINO_TOKEN: trx_staging_b86953031092a582141f5a41617d35f723ca416e675fd53ace58222d73eefc0e
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - run: |
+          echo "$GITHUB_WORKSPACE"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.x"
+
+      - name: Install dependencies
+        run: |
+          npm install
+          npx playwright install chromium
+
+      - name: Download blob reports from GitHub Actions Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./all-blob-reports
+          pattern: blob-report-*
+          merge-multiple: true
+
+      - name: Merge Reports
+        run: |
+          npx playwright merge-reports --config=playwright.config.js ./all-blob-reports
+
+      - name: Upload HTML report
+        uses: actions/upload-artifact@v4
+        with:
+          name: Playwright Test Report
+          path: ./playwright-report
+          retention-days: 14
+
+      - name: Cache tdpw last failed metadata
+        if: always()
+        run: npx tdpw cache
