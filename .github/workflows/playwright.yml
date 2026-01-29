@@ -19,9 +19,7 @@ jobs:
         node-version: 20
     
     - name: Install dependencies
-      run: |
-        npm install
-        npm install testdino-playwright-1.0.0.tgz
+      run: npm ci
     
     - name: Run Playwright tests
       run: npx playwright test
