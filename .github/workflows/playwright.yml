@@ -38,7 +38,7 @@ jobs:
     - name: Upload test results to TestDino
       run: |
         npm install ./testdino-playwright-1.0.0.tgz
-        npx tdpw test -t trx_staging_b68888caedc09f618f2541a85fc8ec478ff3900758f881fb5f82f8c592682512 --server-url=https://staging-api.testdino.com
+        npx playwright test
 
   # Runs every hour: tests branch-1 through branch-5
   test-scheduled:
@@ -87,4 +87,4 @@ jobs:
     - name: Upload test results to TestDino
       run: |
         npm install ./testdino-playwright-1.0.0.tgz
-        npx tdpw test -t trx_staging_b68888caedc09f618f2541a85fc8ec478ff3900758f881fb5f82f8c592682512 --server-url=https://staging-api.testdino.com
+        npx playwright test
