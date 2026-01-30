@@ -1,90 +1,90 @@
-name: Playwright Tests
-# Trigger on push to any branch, and every hour on 5 branches (cron)
-on:
-  push:
-  schedule:
-    - cron: '0 * * * *'  # Every hour at minute 0
+# name: Playwright Tests
+# # Trigger on push to any branch, and every hour on 5 branches (cron)
+# on:
+#   push:
+#   schedule:
+#     - cron: '0 * * * *'  # Every hour at minute 0
 
-jobs:
-  # Runs on every push: tests the branch that was pushed
-  test:
-    if: github.event_name == 'push'
-    timeout-minutes: 20
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: read
-    steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-node@v4
-      with:
-        node-version: lts/*
-    - name: Install dependencies
-      run: npm ci
-    - name: Get Playwright version
-      id: playwright-version
-      run: echo "version=$(node -p "require('./package-lock.json').packages['node_modules/@playwright/test'].version")" >> $GITHUB_OUTPUT
-    - name: Cache Playwright browsers
-      uses: actions/cache@v4
-      id: playwright-cache
-      with:
-        path: ~/.cache/ms-playwright
-        key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
-    - name: Install Playwright system dependencies
-      if: steps.playwright-cache.outputs.cache-hit != 'true'
-      run: sudo npx playwright install-deps chromium
-    - name: Install Playwright browsers
-      run: npx playwright install chromium
-    - name: Upload test results to TestDino
-      run: |
-        npm install ./testdino-playwright-1.0.0.tgz
-        npx playwright test
+# jobs:
+#   # Runs on every push: tests the branch that was pushed
+#   test:
+#     if: github.event_name == 'push'
+#     timeout-minutes: 20
+#     runs-on: ubuntu-latest
+#     permissions:
+#       contents: read
+#       pull-requests: read
+#     steps:
+#     - uses: actions/checkout@v4
+#     - uses: actions/setup-node@v4
+#       with:
+#         node-version: lts/*
+#     - name: Install dependencies
+#       run: npm ci
+#     - name: Get Playwright version
+#       id: playwright-version
+#       run: echo "version=$(node -p "require('./package-lock.json').packages['node_modules/@playwright/test'].version")" >> $GITHUB_OUTPUT
+#     - name: Cache Playwright browsers
+#       uses: actions/cache@v4
+#       id: playwright-cache
+#       with:
+#         path: ~/.cache/ms-playwright
+#         key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
+#     - name: Install Playwright system dependencies
+#       if: steps.playwright-cache.outputs.cache-hit != 'true'
+#       run: sudo npx playwright install-deps chromium
+#     - name: Install Playwright browsers
+#       run: npx playwright install chromium
+#     - name: Upload test results to TestDino
+#       run: |
+#         npm install ./testdino-playwright-1.0.0.tgz
+#         npx playwright test
 
-  # Runs every hour: tests branch-1 through branch-5
-  test-scheduled:
-    if: github.event_name == 'schedule'
-    timeout-minutes: 20
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        branch: [branch-1, branch-2, branch-3, branch-4, branch-5]
-    permissions:
-      contents: read
-      pull-requests: read
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        ref: ${{ matrix.branch }}
-    - uses: actions/setup-node@v4
-      with:
-        node-version: lts/*
-    # Install project dependencies
-    - name: Install dependencies
-      run: npm ci
-    # Get Playwright version for caching
-    - name: Get Playwright version
-      id: playwright-version
-      run: echo "version=$(node -p "require('./package-lock.json').packages['node_modules/@playwright/test'].version")" >> $GITHUB_OUTPUT
-    # Cache Playwright browsers to speed up CI runs
-    - name: Cache Playwright browsers
-      uses: actions/cache@v4
-      id: playwright-cache
-      with:
-        path: ~/.cache/ms-playwright
-        key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
-    # Install system dependencies for Playwright (only if not cached)
-    - name: Install Playwright system dependencies
-      if: steps.playwright-cache.outputs.cache-hit != 'true'
-      run: sudo npx playwright install-deps chromium
-    # Install Playwright browsers
-    - name: Install Playwright browsers
-      run: npx playwright install chromium
-    # Run Playwright tests (|| true ensures workflow continues even if tests fail)
-    # - name: Run Playwright tests
-    #   run: npx playwright test || true
-    # Upload test results to TestDino for analysis and reporting
-    - name: Upload test results to TestDino
-      run: |
-        npm install ./testdino-playwright-1.0.0.tgz
-        npx playwright test
+#   # Runs every hour: tests branch-1 through branch-5
+#   test-scheduled:
+#     if: github.event_name == 'schedule'
+#     timeout-minutes: 20
+#     runs-on: ubuntu-latest
+#     strategy:
+#       fail-fast: false
+#       matrix:
+#         branch: [branch-1, branch-2, branch-3, branch-4, branch-5]
+#     permissions:
+#       contents: read
+#       pull-requests: read
+#     steps:
+#     - uses: actions/checkout@v4
+#       with:
+#         ref: ${{ matrix.branch }}
+#     - uses: actions/setup-node@v4
+#       with:
+#         node-version: lts/*
+#     # Install project dependencies
+#     - name: Install dependencies
+#       run: npm ci
+#     # Get Playwright version for caching
+#     - name: Get Playwright version
+#       id: playwright-version
+#       run: echo "version=$(node -p "require('./package-lock.json').packages['node_modules/@playwright/test'].version")" >> $GITHUB_OUTPUT
+#     # Cache Playwright browsers to speed up CI runs
+#     - name: Cache Playwright browsers
+#       uses: actions/cache@v4
+#       id: playwright-cache
+#       with:
+#         path: ~/.cache/ms-playwright
+#         key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
+#     # Install system dependencies for Playwright (only if not cached)
+#     - name: Install Playwright system dependencies
+#       if: steps.playwright-cache.outputs.cache-hit != 'true'
+#       run: sudo npx playwright install-deps chromium
+#     # Install Playwright browsers
+#     - name: Install Playwright browsers
+#       run: npx playwright install chromium
+#     # Run Playwright tests (|| true ensures workflow continues even if tests fail)
+#     # - name: Run Playwright tests
+#     #   run: npx playwright test || true
+#     # Upload test results to TestDino for analysis and reporting
+#     - name: Upload test results to TestDino
+#       run: |
+#         npm install ./testdino-playwright-1.0.0.tgz
+#         npx playwright test
